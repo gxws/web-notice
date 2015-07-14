@@ -65,7 +65,7 @@ public class NoticeScanBO {
 
 	@Scheduled(cron = "0 0/1 * * * ?")
 	public void getScanSleep() {
-		scan = noticeBO.getScanSleep().multiply(ms).longValue();
+//		scan = noticeBO.getScanSleep().multiply(ms).longValue();
 		log.debug("获取scanSleep: " + scan + " ms");
 	}
 }

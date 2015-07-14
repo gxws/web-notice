@@ -73,7 +73,11 @@ public class NoticeSendBO {
 	 */
 	@Scheduled(cron = "0/1 * * * * ?")
 	public void sending8() {
-		log.debug("当前队列数：" + nqdmList.size() + "  " + countMap.size());
+		if (0 == nqdmList.size() && 0 == countMap.size()) {
+
+		} else {
+			log.debug("当前队列数：" + nqdmList.size() + "  " + countMap.size());
+		}
 		now = new Date().getTime();
 		returnList = new ArrayList<>();
 		removeList = new ArrayList<>();
