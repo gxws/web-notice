@@ -33,8 +33,8 @@ import com.gxws.tools.sign.SignUtil;
 /**
  * 消息发送
  * 
- * @author 朱伟亮
- * @create 2014-5-27 下午5:22:12
+ * @author zhuwl120820@gxwsxx.com
+ * @since 1.0
  */
 @Component
 public class NoticeSendBO {
@@ -65,53 +65,6 @@ public class NoticeSendBO {
 	private List<NoticeQueueDM> removeList;
 
 	/**
-	 * 定时发送发送
-	 * 
-	 * @author 朱伟亮
-	 * @create 2014-5-28 下午3:10:55
-	 */
-	// @Scheduled(cron = "0/1 * * * * ?")
-	public void sending() {
-		log.debug("当前队列数：" + nqdmList.size() + "  " + countMap.size());
-		now = new Date().getTime();
-		returnList = new ArrayList<>();
-		removeList = new ArrayList<>();
-		for (NoticeQueueDM nqdm : nqdmList) {
-			long send = nqdm.getTime().getTime()
-					+ nqdm.getInterval().multiply(ms).longValue();
-			log.debug("send:" + send + " now:" + now + " = " + (now - send));
-			if (now < send) {
-				continue;
-			} else {
-				boolean isSuccess = send(nqdm);
-				if (null == countMap.get(nqdm.getId())) {
-					countMap.put(nqdm.getId(), 0);
-				}
-				count = countMap.get(nqdm.getId()) + 1;
-				log.debug("发送处理：" + nqdm.getUrl() + " 发送次数：" + count);
-				countMap.put(nqdm.getId(), count);
-				if (isSuccess) {
-					nqdm.setStatus(NoticeStatus.RECEIVED.getValue());
-					removeList.add(nqdm);
-					countMap.remove(nqdm.getId());
-				} else {
-					if (count >= nqdm.getSendMax().intValue()) {
-						nqdm.setStatus(NoticeStatus.STOP.getValue());
-						removeList.add(nqdm);
-						countMap.remove(nqdm.getId());
-					}
-				}
-				nqdm.setTime(new Date());
-				returnList.add(nqdm);
-			}
-		}
-		if (0 < returnList.size()) {
-			noticeBO.sent(returnList);
-		}
-		nqdmList.removeAll(removeList);
-	}
-
-	/**
 	 * 8次定时发送发送
 	 * 
 	 * @author 朱伟亮
@@ -125,9 +78,6 @@ public class NoticeSendBO {
 		returnList = new ArrayList<>();
 		removeList = new ArrayList<>();
 		for (NoticeQueueDM nqdm : nqdmList) {
-			// long send = nqdm.getTime().getTime()
-			// + nqdm.getInterval().multiply(ms).longValue();
-			// log.debug("send:" + send + " now:" + now + " = " + (now - send));
 			count = countMap.get(nqdm.getId());
 			if (null == countMap.get(nqdm.getId())) {
 				countMap.put(nqdm.getId(), 0);
@@ -163,6 +113,13 @@ public class NoticeSendBO {
 		nqdmList.removeAll(removeList);
 	}
 
+	/**
+	 * 删除队列消息
+	 * 
+	 * @author zhuwl120820@gxwsxx.com
+	 * @param nqdm
+	 * @since 1.0
+	 */
 	private void removeNoticeQueueDMFromMap(NoticeQueueDM nqdm) {
 		nqdm.setStatus(NoticeStatus.STOP.getValue());
 		removeList.add(nqdm);
@@ -172,9 +129,9 @@ public class NoticeSendBO {
 	/**
 	 * 新加列表
 	 * 
-	 * @author 朱伟亮
-	 * @create 2014-5-28 下午3:11:11
+	 * @author zhuwl120820@gxwsxx.com
 	 * @param nqdmList
+	 * @since 1.0
 	 */
 	public void addList(List<NoticeQueueDM> nqdmList) {
 		if (null != nqdmList && 0 != nqdmList.size()) {
@@ -184,7 +141,6 @@ public class NoticeSendBO {
 				dm.setInitTime(new Date());
 				this.nqdmList.add(dm);
 			}
-
 		}
 	}
 
@@ -202,10 +158,10 @@ public class NoticeSendBO {
 	/**
 	 * 发送
 	 * 
-	 * @author 朱伟亮
-	 * @create 2014-5-28 下午2:13:12
+	 * @author zhuwl120820@gxwsxx.com
 	 * @param nqdm
 	 * @return true：对方收到并成功处理，false：对方未收到或未处理
+	 * @since 1.0
 	 */
 	private boolean send(NoticeQueueDM nqdm) {
 		log.debug("发送：" + nqdm.getUrl());
@@ -213,7 +169,6 @@ public class NoticeSendBO {
 		try {
 			HttpPost post = new HttpPost(nqdm.getUrl().trim());
 			List<NameValuePair> nvpList = new ArrayList<NameValuePair>();
-			// String[][] keyvalues = keyAndValue(nqdm.getData());
 			Map<String, String> dataMap = ObjectTools.string2Map(
 					nqdm.getData(), ",", "=");
 			if (null == nqdm.getAppKey() || "".equals(nqdm.getAppKey())) {
@@ -274,6 +229,13 @@ public class NoticeSendBO {
 		return sb.toString();
 	}
 
+	/**
+	 * 把定义的时间转换成毫秒
+	 * 
+	 * @author zhuwl120820@gxwsxx.com
+	 * @return 毫秒
+	 * @since 1.0
+	 */
 	private Long[] initMsIntervals() {
 		Long[] msIntervals = new Long[intervals.length];
 		BigDecimal b = BigDecimal.ZERO;
@@ -312,12 +274,4 @@ public class NoticeSendBO {
 		return msIntervals;
 	}
 
-	public static void main(String[] args) {
-		NoticeSendBO nsbo = new NoticeSendBO();
-		NoticeQueueDM dm = new NoticeQueueDM();
-		dm.setAppKey("123");
-		dm.setData("billId=0000094,orderId=34323,noticeType=0000");
-		dm.setUrl("http://localhost:18089/zhu-dev/notice");
-		System.out.println(nsbo.send(dm));
-	}
 }

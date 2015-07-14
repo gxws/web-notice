@@ -1,6 +1,3 @@
-/**
- * 
- */
 package com.gxws.web.notice.bo;
 
 import java.math.BigDecimal;
@@ -18,8 +15,8 @@ import com.gxws.service.letjoin.webservice.INoticeBO;
 /**
  * 消息获取
  * 
- * @author 朱伟亮
- * @create 2014-5-28 上午9:15:23
+ * @author zhuwl120820@gxwsxx.com
+ * @since 1.0
  */
 @Component
 public class NoticeScanBO {
@@ -36,7 +33,7 @@ public class NoticeScanBO {
 
 	private BigDecimal ms = new BigDecimal("1000");
 
-	private long scan = 10000;
+	private long scan = 5000;
 
 	private long now;
 
