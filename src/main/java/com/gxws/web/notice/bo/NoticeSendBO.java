@@ -51,8 +51,7 @@ public class NoticeSendBO {
 	private final BigDecimal ms = new BigDecimal("1000");
 
 	// 数字+单位，s秒，m分，h小时，d天，M月，y年
-	private String[] intervals = new String[] { "1s", "30s", "3m", "10m",
-			"30m", "1h", "2h", "8h" };
+	private String[] intervals = new String[] { "1s", "30s", "3m", "10m", "30m", "1h", "2h", "8h" };
 
 	private Long[] msIntervals = initMsIntervals();
 
@@ -78,14 +77,16 @@ public class NoticeSendBO {
 		returnList = new ArrayList<>();
 		removeList = new ArrayList<>();
 		for (NoticeQueueDM nqdm : nqdmList) {
+			if (null == nqdm || null == nqdm.getId()) {
+				continue;
+			}
 			count = countMap.get(nqdm.getId());
 			if (null == countMap.get(nqdm.getId())) {
 				countMap.put(nqdm.getId(), 0);
 			} else if (msIntervals.length <= count || count < 0) {
 				removeNoticeQueueDMFromMap(nqdm);
 			}
-			long send = nqdm.getInitTime().getTime()
-					+ msIntervals[count].longValue();
+			long send = nqdm.getInitTime().getTime() + msIntervals[count].longValue();
 			if (now <= send) {
 				continue;
 			} else {
@@ -169,8 +170,7 @@ public class NoticeSendBO {
 		try {
 			HttpPost post = new HttpPost(nqdm.getUrl().trim());
 			List<NameValuePair> nvpList = new ArrayList<NameValuePair>();
-			Map<String, String> dataMap = ObjectTools.string2Map(
-					nqdm.getData(), ",", "=");
+			Map<String, String> dataMap = ObjectTools.string2Map(nqdm.getData(), ",", "=");
 			if (null == nqdm.getAppKey() || "".equals(nqdm.getAppKey())) {
 
 			} else {
@@ -181,10 +181,8 @@ public class NoticeSendBO {
 			}
 
 			for (Object key : dataMap.keySet()) {
-				log.debug("发送参数：" + key.toString() + ":"
-						+ dataMap.get(key).toString());
-				nvpList.add(new BasicNameValuePair(key.toString(), dataMap.get(
-						key).toString()));
+				log.debug("发送参数：" + key.toString() + ":" + dataMap.get(key).toString());
+				nvpList.add(new BasicNameValuePair(key.toString(), dataMap.get(key).toString()));
 			}
 			post.setEntity(new UrlEncodedFormEntity(nvpList, "utf-8"));
 			CloseableHttpResponse res = null;
