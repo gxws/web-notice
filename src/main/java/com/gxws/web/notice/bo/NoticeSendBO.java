@@ -5,7 +5,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -44,9 +47,18 @@ public class NoticeSendBO {
 	@Autowired
 	private INoticeBO noticeBO;
 
-	private List<NoticeQueueDM> nqdmList = new ArrayList<>();
+	private static final String MONITOR_ID = "monitor_id";
+	private static final String MONITOR_URL = "http://monitor.gxwsxx.com:8001/monitor/web-notice.html";
+	private static int MONITOR_COUNT = 0;
 
-	private Map<String, Integer> countMap = new HashMap<>();
+	private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss");
+
+	private CloseableHttpClient httpclient = HttpClients.createDefault();
+
+	// private List<NoticeQueueDM> nqdmList = new ArrayList<>();
+	private Map<String, NoticeQueueDM> nqdmMap = Collections.synchronizedMap(new HashMap<String, NoticeQueueDM>());
+
+	private Map<String, Integer> countMap = Collections.synchronizedMap(new HashMap<String, Integer>());
 
 	private final BigDecimal ms = new BigDecimal("1000");
 
@@ -57,61 +69,91 @@ public class NoticeSendBO {
 
 	private long now;
 
-	private int count;
+	;
 
 	private List<NoticeQueueDM> returnList;
 
-	private List<NoticeQueueDM> removeList;
+	private List<String> removeList;
 
 	/**
 	 * 8次定时发送发送
 	 * 
 	 * @author 朱伟亮
-	 * @create 2014-7-24上午10:57:41
 	 * 
 	 */
 	@Scheduled(cron = "0/1 * * * * ?")
 	public void sending8() {
-		log.debug("当前队列数：" + nqdmList.size() + "  " + countMap.size());
-		now = new Date().getTime();
-		returnList = new ArrayList<>();
-		removeList = new ArrayList<>();
-		for (NoticeQueueDM nqdm : nqdmList) {
-			if (null == nqdm || null == nqdm.getId()) {
-				continue;
-			}
-			count = countMap.get(nqdm.getId());
-			if (null == countMap.get(nqdm.getId())) {
-				countMap.put(nqdm.getId(), 0);
-			} else if (msIntervals.length <= count || count < 0) {
-				removeNoticeQueueDMFromMap(nqdm);
-			}
-			long send = nqdm.getInitTime().getTime() + msIntervals[count].longValue();
-			if (now <= send) {
-				continue;
+		try {
+			if (nqdmMap.isEmpty() && countMap.isEmpty()) {
+
 			} else {
-				boolean isSuccess = send(nqdm);
-				count = count + 1;
-				log.debug("发送处理：" + nqdm.getUrl() + " 发送次数：" + count);
-				countMap.put(nqdm.getId(), count);
-				if (isSuccess) {
-					nqdm.setStatus(NoticeStatus.RECEIVED.getValue());
-					removeList.add(nqdm);
-					countMap.remove(nqdm.getId());
+				log.debug("当前队列数：" + nqdmMap.size() + "  " + countMap.size());
+			}
+			// log.debug("当前队列数：" + nqdmList.size() + " " + countMap.size());
+			now = new Date().getTime();
+			returnList = new ArrayList<>();
+			removeList = new ArrayList<>();
+			for (NoticeQueueDM nqdm : nqdmMap.values()) {
+				if (null == nqdm || null == nqdm.getId()) {
+					continue;
+				}
+				Integer value = countMap.get(nqdm.getId());
+				int count = 0;
+				if (null == value) {
+					countMap.put(nqdm.getId(), new Integer(0));
 				} else {
-					// if (count >= nqdm.getSendMax().intValue()) {
-					if (count >= msIntervals.length) {
-						removeNoticeQueueDMFromMap(nqdm);
+					count = value.intValue();
+				}
+				if (msIntervals.length <= count || count < 0) {
+					removeNoticeQueueDMFromMap(nqdm);
+				}
+				long send = nqdm.getInitTime().getTime() + msIntervals[count].longValue();
+				if (now <= send) {
+					continue;
+				} else {
+					boolean isSuccess = send(nqdm);
+					count = count + 1;
+					log.debug("发送处理：" + nqdm.getUrl() + " 发送次数：" + count);
+					countMap.put(nqdm.getId(), count);
+					if (isSuccess) {
+						nqdm.setStatus(NoticeStatus.RECEIVED.getValue());
+						removeList.add(nqdm.getId());
+						countMap.remove(nqdm.getId());
+					} else {
+						// if (count >= nqdm.getSendMax().intValue()) {
+						if (count >= msIntervals.length) {
+							removeNoticeQueueDMFromMap(nqdm);
+						}
+					}
+					nqdm.setTime(new Date());
+					if (!MONITOR_ID.equals(nqdm.getId())) {
+						returnList.add(nqdm);
 					}
 				}
-				nqdm.setTime(new Date());
-				returnList.add(nqdm);
 			}
+			if (0 < returnList.size()) {
+				noticeBO.sent(returnList);
+			}
+			// nqdmList.removeAll(removeList);
+			for (String id : removeList) {
+				nqdmMap.remove(id);
+			}
+		} catch (Exception e) {
+			nqdmMap = Collections.synchronizedMap(new HashMap<String, NoticeQueueDM>());
+			countMap = Collections.synchronizedMap(new HashMap<String, Integer>());
 		}
-		if (0 < returnList.size()) {
-			noticeBO.sent(returnList);
-		}
-		nqdmList.removeAll(removeList);
+	}
+
+	@Scheduled(cron = "0 0/5 * * * ?")
+	public void monitor() {
+		log.info("发送监控测试请求");
+		NoticeQueueDM mdm = new NoticeQueueDM();
+		Date now = new Date();
+		MONITOR_COUNT = MONITOR_COUNT + 1;
+		mdm.setUrl(MONITOR_URL + "?c=" + MONITOR_COUNT + "&tm=" + now.getTime() + "&ts=" + sdf.format(now));
+		mdm.setId(MONITOR_ID);
+		// nqdmMap.put(MONITOR_ID, mdm);
+		addList(Arrays.asList(new NoticeQueueDM[] { mdm }));
 	}
 
 	/**
@@ -121,9 +163,9 @@ public class NoticeSendBO {
 	 * @param nqdm
 	 * @since 1.0
 	 */
-	private void removeNoticeQueueDMFromMap(NoticeQueueDM nqdm) {
+	private synchronized void removeNoticeQueueDMFromMap(NoticeQueueDM nqdm) {
 		nqdm.setStatus(NoticeStatus.STOP.getValue());
-		removeList.add(nqdm);
+		removeList.add(nqdm.getId());
 		countMap.remove(nqdm.getId());
 	}
 
@@ -134,13 +176,14 @@ public class NoticeSendBO {
 	 * @param nqdmList
 	 * @since 1.0
 	 */
-	public void addList(List<NoticeQueueDM> nqdmList) {
+	public synchronized void addList(List<NoticeQueueDM> nqdmList) {
 		if (null != nqdmList && 0 != nqdmList.size()) {
 			for (NoticeQueueDM dm : nqdmList) {
 				this.countMap.put(dm.getId(), 0);
 				dm.setTime(new Date());
 				dm.setInitTime(new Date());
-				this.nqdmList.add(dm);
+				// this.nqdmList.add(dm);
+				this.nqdmMap.put(dm.getId(), dm);
 			}
 		}
 	}
@@ -149,11 +192,20 @@ public class NoticeSendBO {
 	 * 获取列表
 	 * 
 	 * @author 朱伟亮
-	 * @create 2014-5-28 下午3:11:22
 	 * @return
 	 */
-	public List<NoticeQueueDM> getList() {
-		return nqdmList;
+	public String ids() {
+		StringBuffer sb = new StringBuffer();
+		for (String key : nqdmMap.keySet()) {
+			sb.append(key + ",");
+		}
+		String without = "";
+		if (0 == sb.length()) {
+
+		} else {
+			without = sb.substring(0, sb.length() - 1);
+		}
+		return without;
 	}
 
 	/**
@@ -166,7 +218,7 @@ public class NoticeSendBO {
 	 */
 	private boolean send(NoticeQueueDM nqdm) {
 		log.debug("发送：" + nqdm.getUrl());
-		CloseableHttpClient httpclient = HttpClients.createDefault();
+		CloseableHttpResponse res = null;
 		try {
 			HttpPost post = new HttpPost(nqdm.getUrl().trim());
 			List<NameValuePair> nvpList = new ArrayList<NameValuePair>();
@@ -179,13 +231,11 @@ public class NoticeSendBO {
 				dataMap.put("paySign", sign);
 				dataMap.remove("appKey");
 			}
-
 			for (Object key : dataMap.keySet()) {
 				log.debug("发送参数：" + key.toString() + ":" + dataMap.get(key).toString());
 				nvpList.add(new BasicNameValuePair(key.toString(), dataMap.get(key).toString()));
 			}
 			post.setEntity(new UrlEncodedFormEntity(nvpList, "utf-8"));
-			CloseableHttpResponse res = null;
 			res = httpclient.execute(post);
 			log.info(res.getStatusLine());
 			HttpEntity entity = res.getEntity();
@@ -197,10 +247,12 @@ public class NoticeSendBO {
 		} catch (Exception e) {
 			log.debug(e.getMessage(), e);
 		} finally {
-			try {
-				httpclient.close();
-			} catch (IOException e) {
-				log.debug(e.getMessage(), e);
+			if (res != null) {
+				try {
+					res.close();
+				} catch (IOException e) {
+					log.debug(e.getMessage(), e);
+				}
 			}
 		}
 		return false;
@@ -210,7 +262,6 @@ public class NoticeSendBO {
 	 * Stream转换成String
 	 * 
 	 * @author 朱伟亮
-	 * @create 2014-5-28 下午2:18:22
 	 * @param is
 	 *            InputStream对象
 	 * @return String形式返回is中的内容

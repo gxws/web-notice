@@ -1,6 +1,7 @@
 package com.gxws.web.notice.bo;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -44,17 +45,8 @@ public class NoticeScanBO {
 		if (last + scan > now) {
 			return;
 		}
-		List<NoticeQueueDM> list = noticeSendBO.getList();
-		StringBuffer sb = new StringBuffer();
-		for (NoticeQueueDM dm : list) {
-			sb.append(dm.getId() + ",");
-		}
-		String without = "";
-		if (0 == sb.length()) {
-
-		} else {
-			without = sb.substring(0, sb.length() - 1);
-		}
+		List<NoticeQueueDM> list = new ArrayList<>();
+		String without = noticeSendBO.ids();
 		list = noticeBO.getNewNotice(without);
 		if (null != list && 0 != list.size()) {
 			log.debug("新通知：" + list.size());
