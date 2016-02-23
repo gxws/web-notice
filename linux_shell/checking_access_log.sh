@@ -17,15 +17,17 @@ else
 fi
 
 echo "检查字符串"
-last_str=`tail -n 30 $nginx_log_file | grep '^192\.168\.200\.17' | sed -n '$p' | awk '{print $4}'`
+last_str=`tail -n 30 $nginx_log_file | grep '^192\.168\.200\.28' | sed -n '$p' | awk '{print $4}'`
 if [ $last_str ] 
 then
 	echo "有字符串"
 	last_str=${last_str//\[}
 	last_str=${last_str//\//\ }
 	last_str=${last_str/:/ }
-	last_sec=$(date -d '"$last_str"')
+	last_sec=$(date +%s -d "$last_str")
 	now_sec=$(date +%s)
+	echo $last_sec
+	echo $now_sec
 	interval_sec=`expr $now_sec - $last_sec`
 	if [ $interval_sec -gt $checking_timeout_sec ]
 	then
@@ -37,11 +39,10 @@ else
 	check_status="0"
 fi
 
-
 if [ $check_status = "0" -a $mail_status = "0" ]
 then
 	echo "发送邮件"
-	echo "$(date)" >> $base_dir/fasong
+	echo "$mail_title" | mail -s "$mail_title" $mail_box
 	echo "1" > $mail_status_file
 fi
 
