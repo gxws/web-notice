@@ -10,6 +10,7 @@
 
 	<properties>
 		<version.springfarmwork>3.2.0.RELEASE</version.springfarmwork>
+		<version.aspectjweaver>1.7.4</version.aspectjweaver>
 		<version.log4j></version.log4j>
 		<version.cxf>2.7.4</version.cxf>
 		<version.service.letjoin.dm>1.0.1-SNAPSHOT</version.service.letjoin.dm>
@@ -20,6 +21,12 @@
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-webmvc</artifactId>
 			<version>${version.springfarmwork}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.aspectj</groupId>
+			<artifactId>aspectjweaver</artifactId>
+			<version>${version.aspectjweaver}</version>
 		</dependency>
 
 		<dependency>
