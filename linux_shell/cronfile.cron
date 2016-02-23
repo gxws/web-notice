@@ -1,0 +1,4 @@
+### linux‘À––
+### crontab file cronfile.cron
+1/5 * * * * /home/annpud/web-notice/checking_access_log.sh
+
