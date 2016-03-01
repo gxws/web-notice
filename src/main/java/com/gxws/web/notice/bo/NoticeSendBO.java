@@ -84,7 +84,7 @@ public class NoticeSendBO {
 			if (nqdmMap.isEmpty() && countMap.isEmpty()) {
 
 			} else {
-				log.debug("当前队列数：" + nqdmMap.size() + "  " + countMap.size());
+				log.info("当前队列数：" + nqdmMap.size() + "  " + countMap.size());
 			}
 			now = new Date().getTime();
 			returnList = new ArrayList<>();
