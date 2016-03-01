@@ -11,8 +11,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.NameValuePair;
@@ -55,7 +57,6 @@ public class NoticeSendBO {
 
 	private CloseableHttpClient httpclient = HttpClients.createDefault();
 
-	// private List<NoticeQueueDM> nqdmList = new ArrayList<>();
 	private Map<String, NoticeQueueDM> nqdmMap = Collections.synchronizedMap(new HashMap<String, NoticeQueueDM>());
 
 	private Map<String, Integer> countMap = Collections.synchronizedMap(new HashMap<String, Integer>());
@@ -69,12 +70,6 @@ public class NoticeSendBO {
 
 	private long now;
 
-	;
-
-	private List<NoticeQueueDM> returnList;
-
-	private List<String> removeList;
-
 	/**
 	 * 8次定时发送发送
 	 * 
@@ -83,16 +78,17 @@ public class NoticeSendBO {
 	 */
 	@Scheduled(cron = "0/1 * * * * ?")
 	public void sending8() {
+		List<NoticeQueueDM> returnList = null;
+		Set<String> removeId = null;
 		try {
 			if (nqdmMap.isEmpty() && countMap.isEmpty()) {
 
 			} else {
 				log.debug("当前队列数：" + nqdmMap.size() + "  " + countMap.size());
 			}
-			// log.debug("当前队列数：" + nqdmList.size() + " " + countMap.size());
 			now = new Date().getTime();
 			returnList = new ArrayList<>();
-			removeList = new ArrayList<>();
+			removeId = new HashSet<>();
 			for (NoticeQueueDM nqdm : nqdmMap.values()) {
 				if (null == nqdm || null == nqdm.getId()) {
 					continue;
@@ -105,7 +101,8 @@ public class NoticeSendBO {
 					count = value.intValue();
 				}
 				if (msIntervals.length <= count || count < 0) {
-					removeNoticeQueueDMFromMap(nqdm);
+					nqdm.setStatus(NoticeStatus.STOP.getValue());
+					removeId.add(nqdm.getId());
 				}
 				long send = nqdm.getInitTime().getTime() + msIntervals[count].longValue();
 				if (now <= send) {
@@ -117,12 +114,11 @@ public class NoticeSendBO {
 					countMap.put(nqdm.getId(), count);
 					if (isSuccess) {
 						nqdm.setStatus(NoticeStatus.RECEIVED.getValue());
-						removeList.add(nqdm.getId());
-						countMap.remove(nqdm.getId());
+						removeId.add(nqdm.getId());
 					} else {
-						// if (count >= nqdm.getSendMax().intValue()) {
 						if (count >= msIntervals.length) {
-							removeNoticeQueueDMFromMap(nqdm);
+							nqdm.setStatus(NoticeStatus.STOP.getValue());
+							removeId.add(nqdm.getId());
 						}
 					}
 					nqdm.setTime(new Date());
@@ -134,9 +130,9 @@ public class NoticeSendBO {
 			if (0 < returnList.size()) {
 				noticeBO.sent(returnList);
 			}
-			// nqdmList.removeAll(removeList);
-			for (String id : removeList) {
+			for (String id : removeId) {
 				nqdmMap.remove(id);
+				countMap.remove(id);
 			}
 		} catch (Exception e) {
 			nqdmMap = Collections.synchronizedMap(new HashMap<String, NoticeQueueDM>());
@@ -152,21 +148,7 @@ public class NoticeSendBO {
 		MONITOR_COUNT = MONITOR_COUNT + 1;
 		mdm.setUrl(MONITOR_URL + "?c=" + MONITOR_COUNT + "&tm=" + now.getTime() + "&ts=" + sdf.format(now));
 		mdm.setId(MONITOR_ID);
-		// nqdmMap.put(MONITOR_ID, mdm);
 		addList(Arrays.asList(new NoticeQueueDM[] { mdm }));
-	}
-
-	/**
-	 * 删除队列消息
-	 * 
-	 * @author zhuwl120820@gxwsxx.com
-	 * @param nqdm
-	 * @since 1.0
-	 */
-	private synchronized void removeNoticeQueueDMFromMap(NoticeQueueDM nqdm) {
-		nqdm.setStatus(NoticeStatus.STOP.getValue());
-		removeList.add(nqdm.getId());
-		countMap.remove(nqdm.getId());
 	}
 
 	/**
